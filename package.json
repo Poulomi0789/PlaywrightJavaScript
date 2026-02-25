@@ -9,6 +9,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.42.0",
+    "allure-commandline": "^2.37.0",
     "allure-playwright": "^2.15.1",
     "dotenv": "^16.0.0",
     "winston": "^3.8.2"
