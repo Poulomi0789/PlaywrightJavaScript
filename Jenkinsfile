@@ -1,4 +1,5 @@
 pipeline {
+
     agent any
 
     options {
@@ -7,15 +8,16 @@ pipeline {
     }
 
     stages {
+
         stage('Initialize') {
             steps {
-                // Checkout once here to avoid the index.lock conflict
                 checkout scm
             }
         }
 
         stage('Run Tests') {
             parallel {
+
                 stage('Smoke Tests') {
                     agent {
                         docker {
@@ -24,9 +26,8 @@ pipeline {
                         }
                     }
                     steps {
-                        // checkout scm removed from here
                         sh 'npm ci'
-                        sh 'PLAYWRIGHT_HTML_REPORT=smoke-report npx playwright test --grep "@smoke"'
+                        sh 'npx playwright test --grep "@smoke"'
                     }
                 }
 
@@ -38,24 +39,37 @@ pipeline {
                         }
                     }
                     steps {
-                        // checkout scm removed from here
                         sh 'npm ci'
-                        sh 'PLAYWRIGHT_HTML_REPORT=regression-report npx playwright test --grep "@regression"'
+                        sh 'npx playwright test --grep "@regression"'
                     }
                 }
+            }
+        }
+
+        stage('Generate Allure Report') {
+            steps {
+                allure includeProperties: false,
+                       jdk: '',
+                       results: [[path: 'allure-results']]
             }
         }
     }
 
     post {
+
         always {
-            archiveArtifacts artifacts: 'smoke-report/**, regression-report/**', allowEmptyArchive: true
+            archiveArtifacts artifacts: 'allure-results/**', allowEmptyArchive: true
         }
 
         success {
             emailext(
                 subject: "✅ SUCCESS: ${env.JOB_NAME} - Build #${env.BUILD_NUMBER}",
-                body: "<h2>Build Passed 🎉</h2><p>View Reports: <a href='${env.BUILD_URL}'>${env.BUILD_URL}</a></p>",
+                body: """
+                <h2>Build Passed 🎉</h2>
+                <p><b>View Jenkins Report:</b></p>
+                <p><a href="${env.BUILD_URL}">${env.BUILD_URL}</a></p>
+                <p><b>Allure Report Available in Jenkins UI</b></p>
+                """,
                 to: "poulomidas89@gmail.com",
                 mimeType: 'text/html'
             )
@@ -64,7 +78,12 @@ pipeline {
         failure {
             emailext(
                 subject: "❌ FAILURE: ${env.JOB_NAME} - Build #${env.BUILD_NUMBER}",
-                body: "<h2>Build Failed ❌</h2><p>Console: <a href='${env.BUILD_URL}console'>${env.BUILD_URL}console</a></p>",
+                body: """
+                <h2>Build Failed ❌</h2>
+                <p>Check Console:</p>
+                <p><a href="${env.BUILD_URL}console">${env.BUILD_URL}console</a></p>
+                <p><b>Allure Results Archived</b></p>
+                """,
                 to: "poulomidas89@gmail.com",
                 mimeType: 'text/html'
             )
