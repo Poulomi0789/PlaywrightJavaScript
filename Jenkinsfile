@@ -43,13 +43,19 @@ pipeline {
             }
         }
 
-        // ✅ NEW ALLURE STAGE (ADDED ONLY THIS)
         stage('Generate Allure Report') {
+                agent {
+                docker {
+                    image 'mcr.microsoft.com/playwright:v1.58.2-jammy'
+                    reuseNode true
+                    }
+                        }
             steps {
+                sh 'npm ci'
                 sh 'npx allure generate allure-results --clean -o allure-report'
+                    }
             }
         }
-    }
 
     post {
         always {
