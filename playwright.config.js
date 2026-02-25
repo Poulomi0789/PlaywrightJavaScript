@@ -1,5 +1,5 @@
-// playwright.config.js
 const { defineConfig } = require('@playwright/test');
+require('dotenv').config();
 
 module.exports = defineConfig({
   testDir: './src/tests',
@@ -12,8 +12,11 @@ module.exports = defineConfig({
     ['allure-playwright']
   ],
 
-  use: {
+use: {
     baseURL: process.env.BASE_URL,
+    headless: true,
+    screenshot: 'only-on-failure',
+    video: 'retain-on-failure',
     trace: 'on-first-retry'
   }
 });
