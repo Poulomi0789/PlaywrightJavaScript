@@ -7,6 +7,7 @@ pipeline {
     }
 
     stages {
+
         stage('Initialize') {
             steps {
                 checkout scm
@@ -15,6 +16,7 @@ pipeline {
 
         stage('Run Tests') {
             parallel {
+
                 stage('Smoke Tests') {
                     agent {
                         docker {
@@ -24,7 +26,7 @@ pipeline {
                     }
                     steps {
                         sh 'npm ci'
-                        sh 'PLAYWRIGHT_HTML_REPORT=smoke-report npx playwright test --grep "@smoke"'
+                        sh 'npx playwright test --grep "@smoke"'
                     }
                 }
 
@@ -37,38 +39,37 @@ pipeline {
                     }
                     steps {
                         sh 'npm ci'
-                        sh 'PLAYWRIGHT_HTML_REPORT=regression-report npx playwright test --grep "@regression"'
+                        sh 'npx playwright test --grep "@regression"'
                     }
                 }
             }
         }
-
-stage('Generate Allure Report') {
-    agent {
-        docker {
-            image 'mcr.microsoft.com/playwright:v1.58.2-jammy'
-            reuseNode true
-        }
     }
-    steps {
-        sh 'npm ci'
-        sh 'npx allure generate allure-results --clean -o allure-report'
-    }
-}
-        }
 
     post {
+
         always {
-            archiveArtifacts artifacts: 'smoke-report/**, regression-report/**, allure-report/**', allowEmptyArchive: true
+            // Archive reports and Allure results
+            archiveArtifacts artifacts: '**/playwright-report/**, **/allure-results/**',
+                             allowEmptyArchive: true
+
+            // Publish Allure Report (Requires Allure Jenkins Plugin)
+            allure([
+                includeProperties: false,
+                jdk: '',
+                results: [[path: 'allure-results']]
+            ])
         }
 
         success {
             emailext(
                 subject: "✅ SUCCESS: ${env.JOB_NAME} - Build #${env.BUILD_NUMBER}",
                 body: """
-                <h2>Build Passed 🎉</h2>
-                <p>Allure Report Generated Successfully.</p>
-                <p>View Build: <a href='${env.BUILD_URL}'>${env.BUILD_URL}</a></p>
+                    <h2>Build Passed 🎉</h2>
+                    <p>
+                        📊 <b>Allure Report:</b> ${env.BUILD_URL}allure/<br>
+                        📁 <b>Artifacts:</b> ${env.BUILD_URL}artifact/
+                    </p>
                 """,
                 to: "poulomidas89@gmail.com",
                 mimeType: 'text/html'
@@ -79,9 +80,11 @@ stage('Generate Allure Report') {
             emailext(
                 subject: "❌ FAILURE: ${env.JOB_NAME} - Build #${env.BUILD_NUMBER}",
                 body: """
-                <h2>Build Failed ❌</h2>
-                <p>Check Allure Report in artifacts.</p>
-                <p>Console: <a href='${env.BUILD_URL}console'>${env.BUILD_URL}console</a></p>
+                    <h2>Build Failed ❌</h2>
+                    <p>
+                        View Console Logs:<br>
+                        <a href="${env.BUILD_URL}console">${env.BUILD_URL}console</a>
+                    </p>
                 """,
                 to: "poulomidas89@gmail.com",
                 mimeType: 'text/html'
