@@ -10,6 +10,8 @@ module.exports = defineConfig({
   reporter: [
     ['html', { outputFolder: 'playwright-report' }]
   ],
+      ['allure-playwright']
+  ]
 
   use: {
     baseURL: process.env.BASE_URL,
