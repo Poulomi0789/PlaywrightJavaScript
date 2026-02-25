@@ -1,6 +1,6 @@
 pipeline {
 
-    agent any
+    agent none
 
     options {
         timestamps()
@@ -9,61 +9,29 @@ pipeline {
 
     stages {
 
-        stage('Checkout Code') {
+        stage('Smoke Tests') {
+            agent {
+                docker {
+                    image 'mcr.microsoft.com/playwright:v1.44.0-jammy'
+                }
+            }
             steps {
                 checkout scm
+                sh 'npm ci'
+                sh 'npx playwright test --grep "@smoke"'
             }
         }
 
-        stage('Clean Old Reports') {
-            steps {
-                sh 'rm -rf playwright-report allure-results'
-            }
-        }
-
-        stage('Parallel Test Execution') {
-
-            parallel {
-
-                stage('Smoke Tests') {
-                    agent {
-                        docker {
-                            image "mcr.microsoft.com/playwright:latest"
-                            reuseNode true
-                        }
-                    }
-
-                    steps {
-                        sh '''
-                        npm install
-                        npx playwright test --grep "@smoke"
-                        '''
-                    }
-                }
-
-                stage('Regression Tests') {
-                    agent {
-                        docker {
-                            image "mcr.microsoft.com/playwright:latest"
-                            reuseNode true
-                        }
-                    }
-
-                    steps {
-                        sh '''
-                        npm install
-                        npx playwright test --grep "@regression"
-                        '''
-                    }
+        stage('Regression Tests') {
+            agent {
+                docker {
+                    image 'mcr.microsoft.com/playwright:v1.44.0-jammy'
                 }
             }
-        }
-
-        stage('Generate Allure Report') {
             steps {
-                allure includeProperties: false,
-                       jdk: '',
-                       results: [[path: 'allure-results']]
+                checkout scm
+                sh 'npm ci'
+                sh 'npx playwright test --grep "@regression"'
             }
         }
     }
@@ -75,21 +43,11 @@ pipeline {
         }
 
         success {
-            emailext(
-                subject: "✅ SUCCESS: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                body: "Build Passed. Check Jenkins for reports.",
-                to: "poulomidas89@gmail.com",
-                mimeType: 'text/html'
-            )
+            echo "Build Successful"
         }
 
         failure {
-            emailext(
-                subject: "❌ FAILURE: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                body: "Build Failed. Check console logs.",
-                to: "poulomidas89@gmail.com",
-                mimeType: 'text/html'
-            )
+            echo "Build Failed"
         }
     }
 }
