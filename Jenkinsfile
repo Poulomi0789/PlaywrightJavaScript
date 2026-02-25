@@ -1,6 +1,6 @@
 pipeline {
 
-    agent none
+    agent any
 
     options {
         timestamps()
@@ -14,21 +14,19 @@ pipeline {
 
     stages {
 
-        stage('Checkout') {
-            agent any
+        stage('Checkout Code') {
             steps {
                 checkout scm
             }
         }
 
-        stage('Clean Workspace') {
-            agent any
+        stage('Clean Old Reports') {
             steps {
                 sh 'rm -rf playwright-report allure-results'
             }
         }
 
-        stage('Parallel Execution by Tag') {
+        stage('Parallel Test Execution') {
 
             parallel {
 
@@ -41,11 +39,14 @@ pipeline {
                     }
 
                     steps {
-                        sh '''
+                        timeout(time: 10, unit: 'MINUTES') {
+                            sh """
                             npm install
-                            npx playwright install
-                            npx playwright test --grep "@smoke" --reporter=allure-playwright
-                        '''
+                            npx playwright install --with-deps
+                            npx playwright test --grep "@smoke" \
+                            --reporter=allure-playwright
+                            """
+                        }
                     }
                 }
 
@@ -58,36 +59,24 @@ pipeline {
                     }
 
                     steps {
-                        sh '''
+                        timeout(time: 10, unit: 'MINUTES') {
+                            sh """
                             npm install
-                            npx playwright install
-                            npx playwright test --grep "@regression" --reporter=allure-playwright
-                        '''
+                            npx playwright install --with-deps
+                            npx playwright test --grep "@regression" \
+                            --reporter=allure-playwright
+                            """
+                        }
                     }
                 }
             }
         }
 
         stage('Generate Allure Report') {
-            agent any
             steps {
                 allure includeProperties: false,
                        jdk: '',
                        results: [[path: 'allure-results']]
-            }
-        }
-
-        stage('Publish HTML Report') {
-            agent any
-            steps {
-                publishHTML([
-                    allowMissing: false,
-                    alwaysLinkToLastBuild: true,
-                    keepAll: true,
-                    reportDir: 'playwright-report',
-                    reportFiles: 'index.html',
-                    reportName: 'Playwright HTML Report'
-                ])
             }
         }
     }
@@ -95,17 +84,16 @@ pipeline {
     post {
 
         always {
-            archiveArtifacts artifacts: 'playwright-report/**'
+            archiveArtifacts artifacts: 'playwright-report/**', allowEmptyArchive: true
         }
 
         success {
             emailext(
                 subject: "✅ SUCCESS: ${env.JOB_NAME} - Build #${env.BUILD_NUMBER}",
                 body: """
-                    <h2>Build Successful 🎉</h2>
-                    <p>Environment: ${BASE_URL}</p>
-                    <p>Build URL: <a href='${env.BUILD_URL}'>Open Jenkins Build</a></p>
-                    <p>Allure Report available in Jenkins.</p>
+                <h2>Build Successful 🎉</h2>
+                <p>Environment: ${BASE_URL}</p>
+                <p>Build URL: <a href='${env.BUILD_URL}'>Open</a></p>
                 """,
                 to: "poulomidas89@gmail.com",
                 mimeType: 'text/html'
@@ -116,9 +104,8 @@ pipeline {
             emailext(
                 subject: "❌ FAILURE: ${env.JOB_NAME} - Build #${env.BUILD_NUMBER}",
                 body: """
-                    <h2>Build Failed ❌</h2>
-                    <p>Check Console Output:</p>
-                    <p><a href='${env.BUILD_URL}console'>Open Console</a></p>
+                <h2>Build Failed ❌</h2>
+                <p>Check Console: <a href='${env.BUILD_URL}console'>Logs</a></p>
                 """,
                 to: "poulomidas89@gmail.com",
                 mimeType: 'text/html'
