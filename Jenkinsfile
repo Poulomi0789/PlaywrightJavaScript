@@ -7,11 +7,6 @@ pipeline {
         timeout(time: 1, unit: 'HOURS')
     }
 
-    environment {
-        NODE_IMAGE = "node:20"
-        BASE_URL = "https://practicetestautomation.com"
-    }
-
     stages {
 
         stage('Checkout Code') {
@@ -33,40 +28,32 @@ pipeline {
                 stage('Smoke Tests') {
                     agent {
                         docker {
-                            image "${NODE_IMAGE}"
+                            image "mcr.microsoft.com/playwright:latest"
                             reuseNode true
                         }
                     }
 
                     steps {
-                        timeout(time: 10, unit: 'MINUTES') {
-                            sh """
-                            npm install
-                            npx playwright install --with-deps
-                            npx playwright test --grep "@smoke" \
-                            --reporter=allure-playwright
-                            """
-                        }
+                        sh '''
+                        npm install
+                        npx playwright test --grep "@smoke"
+                        '''
                     }
                 }
 
                 stage('Regression Tests') {
                     agent {
                         docker {
-                            image "${NODE_IMAGE}"
+                            image "mcr.microsoft.com/playwright:latest"
                             reuseNode true
                         }
                     }
 
                     steps {
-                        timeout(time: 10, unit: 'MINUTES') {
-                            sh """
-                            npm install
-                            npx playwright install --with-deps
-                            npx playwright test --grep "@regression" \
-                            --reporter=allure-playwright
-                            """
-                        }
+                        sh '''
+                        npm install
+                        npx playwright test --grep "@regression"
+                        '''
                     }
                 }
             }
@@ -89,12 +76,8 @@ pipeline {
 
         success {
             emailext(
-                subject: "✅ SUCCESS: ${env.JOB_NAME} - Build #${env.BUILD_NUMBER}",
-                body: """
-                <h2>Build Successful 🎉</h2>
-                <p>Environment: ${BASE_URL}</p>
-                <p>Build URL: <a href='${env.BUILD_URL}'>Open</a></p>
-                """,
+                subject: "✅ SUCCESS: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                body: "Build Passed. Check Jenkins for reports.",
                 to: "poulomidas89@gmail.com",
                 mimeType: 'text/html'
             )
@@ -102,11 +85,8 @@ pipeline {
 
         failure {
             emailext(
-                subject: "❌ FAILURE: ${env.JOB_NAME} - Build #${env.BUILD_NUMBER}",
-                body: """
-                <h2>Build Failed ❌</h2>
-                <p>Check Console: <a href='${env.BUILD_URL}console'>Logs</a></p>
-                """,
+                subject: "❌ FAILURE: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                body: "Build Failed. Check console logs.",
                 to: "poulomidas89@gmail.com",
                 mimeType: 'text/html'
             )
